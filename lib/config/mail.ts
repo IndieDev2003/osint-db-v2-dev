@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer'
-import { emailHost, emailPassword, emailPort, emailUser } from './env.config';
+import { Resend } from 'resend'
+import { emailHost, emailPassword, emailPort, emailUser, resendAPI } from './env.config';
 
 const transporter = nodemailer.createTransport({
     host: emailHost,
@@ -11,4 +12,6 @@ const transporter = nodemailer.createTransport({
     }
 });
 
+
+export const resend = new Resend(resendAPI)
 export default transporter

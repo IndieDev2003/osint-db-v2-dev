@@ -21,17 +21,16 @@ function LoginForm({ }: Props) {
             password: ''
         },
         onSubmit: async ({ value }) => {
-            await authClient.signIn.email({
+            const { data,error}= await authClient.signIn.email({
                 ...value,
-                fetchOptions: {
-                    onSuccess() {
-                        redirect('/dashboard')
-                    },
-                    onError(context) {
-                        toast.error(context.error.message)
-                    }
-                }
             })
+            if (error) {
+                toast.error(error.message)
+            }
+            if (!data?.user.emailVerified) {
+                redirect('/verify')
+            }
+            redirect('/dashboard')
         }
     })
     return (
@@ -76,6 +75,7 @@ function LoginForm({ }: Props) {
                                 />
                                 <Button variant={'secondary'} onClick={() => setShowPass(!showPass)}>{showPass ? <Eye /> : <EyeClosed />}</Button>
                             </div>
+                            <Link href={'/reset-password'} className='-mt-2 text-right text-blue-600'><p>forgot password, reset</p></Link>
                         </Field>
                     )
                 }} />

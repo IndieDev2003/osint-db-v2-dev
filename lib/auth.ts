@@ -1,47 +1,79 @@
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { betterAuth } from "better-auth";
+
 import { client, db } from "./db";
 import { sendMail } from "./mail/sendMail";
 
+import {
+    resendResetPasswordEmail,
+    resendVerifyEmail,
+} from "./config/env.config";
+
+import {
+    passwordResetEmail,
+    emailVerificationEmail,
+} from "./mail/templates";
+
 export const auth = betterAuth({
     appName: "osint-db",
+
+    // Keep your existing database and trustedOrigins configuration.
     trustedOrigins: [
         "http://localhost:3000",
-        "https://your-production-domain.com",
+        "https://osintengine.space",
     ],
+
     baseURL: {
         allowedHosts: [
             "localhost:3000",
             "*.vercel.app",
-            "your-production-domain.com",
+            "osintengine.space",
         ],
         protocol: "auto",
-        fallback: "http://localhost:3000", 
+        fallback: "http://localhost:3000",
     },
+
     database: mongodbAdapter(db, {
         client,
     }),
+
     emailAndPassword: {
         enabled: true,
         minPasswordLength: 8,
         maxPasswordLength: 24,
         requireEmailVerification: true,
+
+        resetPasswordTokenExpiresIn: 60 * 60,
+        revokeSessionsOnPasswordReset: true,
+
+        sendResetPassword: async ({ user, url,token }) => {
+            const template = passwordResetEmail({
+                name: user.name,
+                token,
+            });
+
+            void sendMail({
+                from: resendResetPasswordEmail,
+                to: user.email,
+                ...template,
+            });
+        },
     },
+
     emailVerification: {
         sendOnSignUp: true,
+
         sendVerificationEmail: async ({ user, url }) => {
-            const start = Date.now();
-            try {
-                void sendMail({
-                    to: user.email,
-                    subject: "Verify Your Email",
-                    text: `Click the link to verify your email: ${url}`,
-                });
-                console.log(`Verification email sent in ${Date.now() - start}ms`);
-            } catch (err) {
-                console.error(`Verification email failed after ${Date.now() - start}ms:`, err);
-                throw err;
-            }
+            const template = emailVerificationEmail({
+                name: user.name,
+                url,
+            });
+
+            void sendMail({
+                from: resendVerifyEmail,
+                to: user.email,
+                ...template,
+            });
         },
     },
 });

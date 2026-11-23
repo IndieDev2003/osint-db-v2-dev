@@ -13,6 +13,7 @@ function Home({}: Props) {
           <Link href={'/register'}><Button variant={'outline'}>Register</Button></Link>
           <Link href={'/login'}><Button>Login</Button></Link>
           <Link href={'/dashboard'}><Button variant={'ghost'}>Dashboard</Button></Link>
+          <Link href={'/blogs'}><Button variant={'ghost'}>Blogs</Button></Link>
         </CardContent>
      </Card>
     </div>
