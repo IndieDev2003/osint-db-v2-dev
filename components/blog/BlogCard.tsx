@@ -2,20 +2,19 @@ import Link from "next/link";
 import Image from "next/image";
 
 type Props = {
-    blog: {
-        title: string;
-        slug: string;
-        description: string;
-        tags: string[];
-        coverImage: string;
-        authorName: string;
-        status: "draft" | "published";
-        publishedAt: string | null;
-        createdAt: string;
-    };
+    
+    title: string;
+    slug: string;
+    description: string;
+    tags: string[];
+    coverImage: string;
+    authorName: string;
+    publishedAt: string | null;
+    createdAt: string;
+
 };
 
-export default function BlogCard({ blog }: Props) {
+export default function BlogCard( blog : Props) {
     return (
         <article className="group border rounded-xl overflow-hidden hover:border-primary/50 transition-colors">
             <Link href={`/blogs/${blog.slug}`}>

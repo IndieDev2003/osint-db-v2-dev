@@ -13,6 +13,7 @@ function DashboardHeader({ }: Props) {
                 <h1>OSINT Dashboard</h1>
                 <ul className='flex gap-2 items-center'>
                     <li><Link href={'/dashboard/cases'}><Button variant={'ghost'}>Cases</Button></Link></li>
+                    <li><Link href={'/dashboard/blogs'}><Button variant={'ghost'}>Blogs</Button></Link></li>
                     <li>
                         <LogoutButton/>
                     </li>

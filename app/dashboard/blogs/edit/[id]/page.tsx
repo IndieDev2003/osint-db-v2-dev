@@ -36,7 +36,7 @@ export default async function EditBlogPage({ params }: Props) {
         seoTitle: blog.seoTitle,
         seoDescription: blog.seoDescription,
         blogDescription: blog.blogDescription,
-        contentJson: blog.contentJson,
+        contentHtml:blog.contentHtml,
         tags: blog.tags,
         coverImage: blog.coverImage,
         status: blog.status,

@@ -6,7 +6,7 @@ import LogoutButton from './LogoutButton'
 type Props = {}
 
 async function BlogHeader({ }: Props) {
-    const session = getSession();
+    const session = await getSession();
     return (
         <header className='flex justify-between items-center border-b-2 py-2 px-4'>
             <Link href={'/'}>
@@ -18,10 +18,17 @@ async function BlogHeader({ }: Props) {
                 </Link>
                 {
                     !session ?
-                        <Link href={'/login'}>
-                            <li><Button className={''} variant={'outline'}>Login</Button></li>
-                        </Link> :
-                        <LogoutButton />
+                        <>
+                            <Link href={'/login'}>
+                                <li><Button className={''} variant={'outline'}>Login</Button></li>
+                            </Link>
+                        </> :
+                        <>
+                            <Link href={'/dashboard'}>
+                            <Button>Dashboard</Button>
+                            </Link>
+                            <LogoutButton />
+                        </>
                 }
 
             </ul>

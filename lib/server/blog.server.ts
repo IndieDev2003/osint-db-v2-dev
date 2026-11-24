@@ -65,7 +65,7 @@ export async function createBlogInDB(
 
         blogDescription: input.blogDescription,
 
-        contentJson: input.contentJson as BlogDocument["contentJson"],
+      
         contentHtml,
 
         tags: [...new Set(input.tags.map(tag => tag.trim()))],
@@ -185,7 +185,7 @@ export async function updateBlogInDB(
 
                 blogDescription: input.blogDescription,
 
-                contentJson: input.contentJson as BlogDocument["contentJson"],
+               
                 contentHtml,
 
                 tags: [...new Set(input.tags)],

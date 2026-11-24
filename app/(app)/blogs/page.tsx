@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { getPublishedBlogs } from "@/lib/server/blog.server";
 import { SITE_URL } from "@/lib/seo";
+import BlogCard from "@/components/blog/BlogCard";
 
 export const metadata: Metadata = {
   title: "OSINT Research & Cybersecurity Blogs",
@@ -43,53 +44,7 @@ export default async function BlogsPage() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {blogs.map(blog => (
             <article key={blog.id}>
-              <Link href={`/blogs/${blog.slug}`}>
-                {blog.coverImage && (
-                  <div className="
-                                        aspect-video overflow-hidden
-                                        rounded-lg mb-5
-                                    ">
-                    <img
-                      src={blog.coverImage}
-                      alt={blog.title}
-                      className="
-                                                w-full h-full
-                                                object-cover
-                                                hover:scale-105
-                                                transition-transform
-                                            "
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <p className="
-                                        text-xs uppercase
-                                        tracking-widest
-                                        text-neutral-500
-                                    ">
-                    {blog.tags[0] || "Research"}
-                  </p>
-
-                  <h2 className="
-                                        text-2xl font-semibold
-                                        tracking-tight
-                                    ">
-                    {blog.title}
-                  </h2>
-
-                  <p className="
-                                        text-sm text-neutral-600
-                                        leading-relaxed line-clamp-3
-                                    ">
-                    {blog.description}
-                  </p>
-
-                  <p className="text-xs text-neutral-500">
-                    By {blog.authorName}
-                  </p>
-                </div>
-              </Link>
+              <BlogCard {...blog} />
             </article>
           ))}
         </div>

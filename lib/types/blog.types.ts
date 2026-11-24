@@ -2,10 +2,6 @@ import type { ObjectId } from "mongodb";
 
 export type BlogStatus = "draft" | "published";
 
-export type TiptapDocument = {
-    type: "doc";
-    content?: Record<string, unknown>[];
-};
 
 export type BlogDocument = {
     _id?: ObjectId;
@@ -18,7 +14,6 @@ export type BlogDocument = {
 
     blogDescription: string;
 
-    contentJson: TiptapDocument;
     contentHtml: string;
 
     tags: string[];

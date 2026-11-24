@@ -16,6 +16,7 @@ export const createBlogSchema = z.object({
         .max(70)
         .optional()
         .default(""),
+    contentHtml:z.string(),
 
     seoDescription: z.string()
         .max(170)
@@ -27,28 +28,6 @@ export const createBlogSchema = z.object({
         .min(20, "Description is too short.")
         .max(500),
 
-    contentJson: z.unknown()
-        .refine(
-            value => {
-                if (!value || typeof value !== "object") return false;
-
-                const doc = value as Record<string, unknown>;
-
-                return doc.type === "doc" &&
-                    Array.isArray(doc.content);
-            },
-            "Invalid article content."
-        )
-        .refine(
-            value => {
-                try {
-                    return JSON.stringify(value).length <= 1_000_000;
-                } catch {
-                    return false;
-                }
-            },
-            "Article content exceeds the 1 MB limit."
-        ),
 
     tags: z.array(
         z.string().trim().min(1).max(40)

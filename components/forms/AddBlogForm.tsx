@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
@@ -18,6 +18,8 @@ import {
     updateBlogAction,
 } from "@/lib/actions/blog.actions";
 import { CreateBlogInput } from "@/lib/schema/blog.schemas";
+import { getBlogById } from "@/lib/server/blog.server";
+import { getSession } from "@/lib/server/user.server";
 
 
 type Props = {
@@ -35,8 +37,8 @@ const defaults: CreateBlogInput = {
     slug: "",
     seoTitle: "",
     seoDescription: "",
+    contentHtml:'',
     blogDescription: "",
-    contentJson: emptyDocument,
     tags: ["OSINT"],
     coverImage: "",
     status: "draft",
@@ -58,12 +60,11 @@ export default function BlogForm({
 }: Props) {
     const router = useRouter();
 
-    const [contentJson, setContentJson] = useState<
-        Record<string, unknown>
-    >(
-        (initialValues?.contentJson as Record<string, unknown>)
-        || emptyDocument
-    );
+    const [html, setHtml] = useState<string | unknown>('');
+    const [text, setText] = useState<string | unknown>('');
+
+  
+
 
     const form = useForm({
         defaultValues: initialValues || defaults,
@@ -71,7 +72,8 @@ export default function BlogForm({
         onSubmit: async ({ value }) => {
             const payload = {
                 ...value,
-                contentJson,
+                html,
+                text,
                 tags: value.tags
                     .map(tag => tag.trim())
                     .filter(Boolean),
@@ -93,9 +95,11 @@ export default function BlogForm({
         },
     });
 
+
+
     return (
         <form
-            className="space-y-8"
+            className="space-y-8 min-w-4xl w-full"
             onSubmit={event => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -291,8 +295,11 @@ export default function BlogForm({
                 </div>
 
                 <BlogEditor
-                    initialContent={contentJson}
-                    onChange={setContentJson}
+                    editable={true}
+                    content={form.state.values.contentHtml}
+                    getText={setText}
+
+                    getHtml={setHtml}
                 />
             </div>
 

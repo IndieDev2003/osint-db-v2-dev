@@ -1,557 +1,524 @@
+
 "use client";
 
-import { useRef, useState } from "react";
-
+import { useEffect } from "react";
 import {
+    Editor,
     EditorContent,
+    EditorStateSnapshot,
     useEditor,
-    type Editor,
+    useEditorState,
 } from "@tiptap/react";
+import type { JSONContent } from "@tiptap/react";
+
+import StarterKit from "@tiptap/starter-kit";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
+import TextAlign from "@tiptap/extension-text-align";
 
 import {
     Bold,
     Italic,
-    Underline,
     Strikethrough,
+    Code,
+    RemoveFormatting,
+    Pilcrow,
     Heading1,
     Heading2,
     Heading3,
+    Heading4,
+    Heading5,
+    Heading6,
     List,
     ListOrdered,
+    ListChecks,
     Quote,
-    Code,
-    ImagePlus,
-    Table as TableIcon,
+    CodeSquare,
     Minus,
     Undo2,
     Redo2,
-    Link as LinkIcon,
-    Plus,
     AlignLeft,
     AlignCenter,
     AlignRight,
+    AlignJustify,
 } from "lucide-react";
 
+import { Toggle } from "../ui/toggle";
+import { Skeleton } from "../ui/skeleton";
 
-import { Button } from "@/components/ui/button";
-import { blogExtensions } from "@/lib/blog/editor-extention.client";
 
 type Props = {
-    initialContent?: Record<string, unknown>;
-    onChange: (content: Record<string, unknown>) => void;
+    editable: boolean;
+    content: string;
+
+    onChange?: (content: string) => void;
+    getHtml: (content: string) => void;
+    getText: (content: string) => void;
+    getJson?: (content: JSONContent) => void;
 };
 
+
+// ----------------------------------
+// Editor toolbar state
+// ----------------------------------
+
+function menuBarStateSelector(ctx: EditorStateSnapshot<Editor>) {
+    const editor = ctx.editor;
+
+    return {
+        // Marks
+        isBold: editor.isActive("bold"),
+        canBold: editor.can().chain().toggleBold().run(),
+
+        isItalic: editor.isActive("italic"),
+        canItalic: editor.can().chain().toggleItalic().run(),
+
+        isStrike: editor.isActive("strike"),
+        canStrike: editor.can().chain().toggleStrike().run(),
+
+        isCode: editor.isActive("code"),
+        canCode: editor.can().chain().toggleCode().run(),
+
+        // Paragraphs and headings
+        isParagraph: editor.isActive("paragraph"),
+
+        isHeading1: editor.isActive("heading", { level: 1 }),
+        isHeading2: editor.isActive("heading", { level: 2 }),
+        isHeading3: editor.isActive("heading", { level: 3 }),
+        isHeading4: editor.isActive("heading", { level: 4 }),
+        isHeading5: editor.isActive("heading", { level: 5 }),
+        isHeading6: editor.isActive("heading", { level: 6 }),
+
+        // Lists
+        isBulletList: editor.isActive("bulletList"),
+        isOrderedList: editor.isActive("orderedList"),
+        isTaskList: editor.isActive("taskList"),
+
+        // Blocks
+        isCodeBlock: editor.isActive("codeBlock"),
+        isBlockquote: editor.isActive("blockquote"),
+
+        // Alignment
+        isAlignLeft: editor.isActive({ textAlign: "left" }),
+        isAlignCenter: editor.isActive({ textAlign: "center" }),
+        isAlignRight: editor.isActive({ textAlign: "right" }),
+        isAlignJustify: editor.isActive({ textAlign: "justify" }),
+
+        // Clear formatting
+        canClearMarks: editor.can().chain().unsetAllMarks().run(),
+
+        // History
+        canUndo: editor.can().chain().undo().run(),
+        canRedo: editor.can().chain().redo().run(),
+    };
+}
+
+export type MenuBarState = ReturnType<typeof menuBarStateSelector>;
+
+
+// ----------------------------------
+// Reusable toolbar button
+// ----------------------------------
+
 type ToolbarButtonProps = {
-    editor: Editor;
-    icon: React.ReactNode;
     active?: boolean;
     disabled?: boolean;
-    onClick: () => void;
     label: string;
+    onClick: () => void;
+    children: React.ReactNode;
 };
 
 function ToolbarButton({
-    icon,
-    active,
-    disabled,
-    onClick,
+    active = false,
+    disabled = false,
     label,
+    onClick,
+    children,
 }: ToolbarButtonProps) {
     return (
-        <Button
+        <Toggle
             type="button"
-            size="icon"
-            variant={active ? "secondary" : "ghost"}
+            size="sm"
+            variant="outline"
+            pressed={active}
             disabled={disabled}
-            onClick={onClick}
-            title={label}
+            onPressedChange={onClick}
             aria-label={label}
-            className="shrink-0 size-9"
+            title={label}
+            className="h-8 w-8 p-0"
         >
-            {icon}
-        </Button>
+            {children}
+        </Toggle>
     );
 }
 
-export default function BlogEditor({
-    initialContent,
-    onChange,
-}: Props) {
-    const imageInputRef = useRef<HTMLInputElement>(null);
 
-    const [uploading, setUploading] = useState(false);
-    const [inserting, setInserting] = useState(false);
+// ----------------------------------
+// Toolbar
+// ----------------------------------
 
-    const editor = useEditor({
-        extensions: blogExtensions,
-
-        immediatelyRender: false,
-
-        content: initialContent || {
-            type: "doc",
-            content: [
-                {
-                    type: "paragraph",
-                },
-            ],
-        },
-
-        onUpdate({ editor }) {
-            onChange(editor.getJSON());
-        },
-
-        editorProps: {
-            attributes: {
-                class: "blog-editor-content",
-                spellcheck: "true",
-            },
-        },
+function MenuBar({ editor }: { editor: Editor }) {
+    const state = useEditorState({
+        editor,
+        selector: menuBarStateSelector,
     });
 
-    if (!editor) {
-        return (
-            <div className="border rounded-xl min-h-[600px] animate-pulse bg-muted/30" />
-        );
-    }
+    if (!state) return null;
 
-    async function uploadImage(file: File) {
-        setUploading(true);
-
-        try {
-            const formData = new FormData();
-
-            formData.append("file", file);
-
-            const response = await fetch(
-                "/api/blog-images",
-                {
-                    method: "POST",
-                    body: formData,
-                }
-            );
-
-            const result = await response.json();
-
-            if (!response.ok || !result.success) {
-                throw new Error(
-                    result.error || "Image upload failed."
-                );
-            }
-
-            editor!.chain().focus().setImage({
-                src: result.url,
-                alt: file.name.replace(/\.[^.]+$/, ""),
-            }).run();
-        } catch (error) {
-            console.error(error);
-            window.alert(
-                error instanceof Error
-                    ? error.message
-                    : "Image upload failed."
-            );
-        } finally {
-            setUploading(false);
-
-            if (imageInputRef.current) {
-                imageInputRef.current.value = "";
-            }
-        }
-    }
-
-    function addLink() {
-        const previousUrl =
-            editor!.getAttributes("link").href || "";
-
-        const url = window.prompt(
-            "Enter URL",
-            previousUrl
-        );
-
-        if (url === null) return;
-
-        if (!url.trim()) {
-            editor!.chain().focus().unsetLink().run();
-            return;
-        }
-
-        try {
-            const parsed = new URL(url);
-
-            if (!["https:", "http:", "mailto:"].includes(parsed.protocol)) {
-                throw new Error("Unsupported URL protocol.");
-            }
-
-            editor!.chain().focus().setLink({
-                href: url,
-                target: "_blank",
-                rel: "noopener noreferrer",
-            }).run();
-        } catch {
-            window.alert("Please enter a valid HTTP, HTTPS or mailto URL.");
-        }
-    }
-
-    function addBlock(type: string) {
-        setInserting(false);
-
-        const chain = editor!.chain().focus();
-
-        switch (type) {
-            case "paragraph":
-                chain.setParagraph().run();
-                break;
-
-            case "heading1":
-                chain.setHeading({ level: 1 }).run();
-                break;
-
-            case "heading2":
-                chain.setHeading({ level: 2 }).run();
-                break;
-
-            case "heading3":
-                chain.setHeading({ level: 3 }).run();
-                break;
-
-            case "bullet":
-                chain.toggleBulletList().run();
-                break;
-
-            case "ordered":
-                chain.toggleOrderedList().run();
-                break;
-
-            case "quote":
-                chain.toggleBlockquote().run();
-                break;
-
-            case "code":
-                chain.setCodeBlock({ language: "plaintext" }).run();
-                break;
-
-            case "divider":
-                chain.setHorizontalRule().run();
-                break;
-
-            case "table":
-                chain.insertTable({
-                    rows: 3,
-                    cols: 3,
-                    withHeaderRow: true,
-                }).run();
-                break;
-
-            case "image":
-                imageInputRef.current?.click();
-                break;
-        }
-    }
+    const buttonClass = "h-4 w-4";
 
     return (
-        <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-1 border rounded-md p-2 mb-3 bg-background">
 
-            {/* Block Inserter */}
-            <div className="flex items-center justify-between gap-3">
-                <div className="relative">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setInserting(!inserting)}
-                    >
-                        <Plus className="size-4 mr-2" />
-                        Add block
-                    </Button>
+            {/* Text formatting */}
+            <ToolbarButton
+                label="Bold"
+                active={state.isBold}
+                disabled={!state.canBold}
+                onClick={() => editor.chain().focus().toggleBold().run()}
+            >
+                <Bold className={buttonClass} />
+            </ToolbarButton>
 
-                    {inserting && (
-                        <div className="
-                            absolute left-0 top-11 z-50
-                            w-64 rounded-lg border
-                            bg-background shadow-xl
-                            p-2 grid grid-cols-2 gap-1
-                        ">
-                            {[
-                                ["paragraph", "Paragraph"],
-                                ["heading1", "Heading 1"],
-                                ["heading2", "Heading 2"],
-                                ["heading3", "Heading 3"],
-                                ["bullet", "Bullet List"],
-                                ["ordered", "Numbered List"],
-                                ["quote", "Quote"],
-                                ["code", "Code Block"],
-                                ["image", "Image"],
-                                ["table", "Table"],
-                                ["divider", "Divider"],
-                            ].map(([value, label]) => (
-                                <Button
-                                    key={value}
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="justify-start"
-                                    onClick={() => addBlock(value)}
-                                >
-                                    {label}
-                                </Button>
-                            ))}
-                        </div>
-                    )}
-                </div>
+            <ToolbarButton
+                label="Italic"
+                active={state.isItalic}
+                disabled={!state.canItalic}
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+            >
+                <Italic className={buttonClass} />
+            </ToolbarButton>
 
-                <div className="text-xs text-muted-foreground">
-                    {uploading
-                        ? "Uploading image..."
-                        : "Rich text editor"}
-                </div>
-            </div>
+            <ToolbarButton
+                label="Strikethrough"
+                active={state.isStrike}
+                disabled={!state.canStrike}
+                onClick={() => editor.chain().focus().toggleStrike().run()}
+            >
+                <Strikethrough className={buttonClass} />
+            </ToolbarButton>
 
-            {/* Toolbar */}
-            <div className="
-                sticky top-0 z-20
-                flex flex-wrap items-center gap-1
-                rounded-lg border bg-background
-                p-2 shadow-sm
-            ">
-                <ToolbarButton
-                    editor={editor}
-                    icon={<Bold size={17} />}
-                    label="Bold"
-                    active={editor.isActive("bold")}
-                    onClick={() =>
-                        editor.chain().focus().toggleBold().run()
-                    }
-                />
+            <ToolbarButton
+                label="Inline code"
+                active={state.isCode}
+                disabled={!state.canCode}
+                onClick={() => editor.chain().focus().toggleCode().run()}
+            >
+                <Code className={buttonClass} />
+            </ToolbarButton>
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<Italic size={17} />}
-                    label="Italic"
-                    active={editor.isActive("italic")}
-                    onClick={() =>
-                        editor.chain().focus().toggleItalic().run()
-                    }
-                />
+            <ToolbarButton
+                label="Clear formatting"
+                disabled={!state.canClearMarks}
+                onClick={() =>
+                    editor.chain().focus().unsetAllMarks().clearNodes().run()
+                }
+            >
+                <RemoveFormatting className={buttonClass} />
+            </ToolbarButton>
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<Underline size={17} />}
-                    label="Underline"
-                    active={editor.isActive("underline")}
-                    onClick={() =>
-                        editor.chain().focus().toggleUnderline().run()
-                    }
-                />
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<Strikethrough size={17} />}
-                    label="Strike"
-                    active={editor.isActive("strike")}
-                    onClick={() =>
-                        editor.chain().focus().toggleStrike().run()
-                    }
-                />
+            <div className="w-px h-6 bg-border mx-1" />
 
-                <div className="h-6 w-px bg-border mx-1" />
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<Heading1 size={17} />}
-                    label="Heading 1"
-                    active={editor.isActive("heading", { level: 1 })}
-                    onClick={() =>
-                        editor.chain().focus().toggleHeading({
-                            level: 1,
-                        }).run()
-                    }
-                />
+            {/* Paragraph and headings */}
+            <ToolbarButton
+                label="Paragraph"
+                active={state.isParagraph}
+                onClick={() => editor.chain().focus().setParagraph().run()}
+            >
+                <Pilcrow className={buttonClass} />
+            </ToolbarButton>
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<Heading2 size={17} />}
-                    label="Heading 2"
-                    active={editor.isActive("heading", { level: 2 })}
-                    onClick={() =>
-                        editor.chain().focus().toggleHeading({
-                            level: 2,
-                        }).run()
-                    }
-                />
+            <ToolbarButton
+                label="Heading 1"
+                active={state.isHeading1}
+                onClick={() =>
+                    editor.chain().focus().toggleHeading({ level: 1 }).run()
+                }
+            >
+                <Heading1 className={buttonClass} />
+            </ToolbarButton>
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<Heading3 size={17} />}
-                    label="Heading 3"
-                    active={editor.isActive("heading", { level: 3 })}
-                    onClick={() =>
-                        editor.chain().focus().toggleHeading({
-                            level: 3,
-                        }).run()
-                    }
-                />
+            <ToolbarButton
+                label="Heading 2"
+                active={state.isHeading2}
+                onClick={() =>
+                    editor.chain().focus().toggleHeading({ level: 2 }).run()
+                }
+            >
+                <Heading2 className={buttonClass} />
+            </ToolbarButton>
 
-                <div className="h-6 w-px bg-border mx-1" />
+            <ToolbarButton
+                label="Heading 3"
+                active={state.isHeading3}
+                onClick={() =>
+                    editor.chain().focus().toggleHeading({ level: 3 }).run()
+                }
+            >
+                <Heading3 className={buttonClass} />
+            </ToolbarButton>
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<List size={17} />}
-                    label="Bullet list"
-                    active={editor.isActive("bulletList")}
-                    onClick={() =>
-                        editor.chain().focus().toggleBulletList().run()
-                    }
-                />
+            <ToolbarButton
+                label="Heading 4"
+                active={state.isHeading4}
+                onClick={() =>
+                    editor.chain().focus().toggleHeading({ level: 4 }).run()
+                }
+            >
+                <Heading4 className={buttonClass} />
+            </ToolbarButton>
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<ListOrdered size={17} />}
-                    label="Numbered list"
-                    active={editor.isActive("orderedList")}
-                    onClick={() =>
-                        editor.chain().focus().toggleOrderedList().run()
-                    }
-                />
+            <ToolbarButton
+                label="Heading 5"
+                active={state.isHeading5}
+                onClick={() =>
+                    editor.chain().focus().toggleHeading({ level: 5 }).run()
+                }
+            >
+                <Heading5 className={buttonClass} />
+            </ToolbarButton>
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<Quote size={17} />}
-                    label="Blockquote"
-                    active={editor.isActive("blockquote")}
-                    onClick={() =>
-                        editor.chain().focus().toggleBlockquote().run()
-                    }
-                />
+            <ToolbarButton
+                label="Heading 6"
+                active={state.isHeading6}
+                onClick={() =>
+                    editor.chain().focus().toggleHeading({ level: 6 }).run()
+                }
+            >
+                <Heading6 className={buttonClass} />
+            </ToolbarButton>
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<Code size={17} />}
-                    label="Code block"
-                    active={editor.isActive("codeBlock")}
-                    onClick={() =>
-                        editor.chain().focus().setCodeBlock().run()
-                    }
-                />
 
-                <div className="h-6 w-px bg-border mx-1" />
+            <div className="w-px h-6 bg-border mx-1" />
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<AlignLeft size={17} />}
-                    label="Align left"
-                    onClick={() =>
-                        editor.chain().focus().setTextAlign("left").run()
-                    }
-                />
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<AlignCenter size={17} />}
-                    label="Align center"
-                    onClick={() =>
-                        editor.chain().focus().setTextAlign("center").run()
-                    }
-                />
+            {/* Lists */}
+            <ToolbarButton
+                label="Bullet list"
+                active={state.isBulletList}
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+            >
+                <List className={buttonClass} />
+            </ToolbarButton>
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<AlignRight size={17} />}
-                    label="Align right"
-                    onClick={() =>
-                        editor.chain().focus().setTextAlign("right").run()
-                    }
-                />
+            <ToolbarButton
+                label="Numbered list"
+                active={state.isOrderedList}
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            >
+                <ListOrdered className={buttonClass} />
+            </ToolbarButton>
 
-                <div className="h-6 w-px bg-border mx-1" />
+            <ToolbarButton
+                label="Task list"
+                active={state.isTaskList}
+                onClick={() => editor.chain().focus().toggleTaskList().run()}
+            >
+                <ListChecks className={buttonClass} />
+            </ToolbarButton>
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<LinkIcon size={17} />}
-                    label="Insert link"
-                    active={editor.isActive("link")}
-                    onClick={addLink}
-                />
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<ImagePlus size={17} />}
-                    label="Insert image"
-                    disabled={uploading}
-                    onClick={() =>
-                        imageInputRef.current?.click()
-                    }
-                />
+            <div className="w-px h-6 bg-border mx-1" />
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<TableIcon size={17} />}
-                    label="Insert table"
-                    onClick={() => addBlock("table")}
-                />
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<Minus size={17} />}
-                    label="Horizontal divider"
-                    onClick={() => addBlock("divider")}
-                />
+            {/* Blocks */}
+            <ToolbarButton
+                label="Blockquote"
+                active={state.isBlockquote}
+                onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            >
+                <Quote className={buttonClass} />
+            </ToolbarButton>
 
-                <div className="h-6 w-px bg-border mx-1" />
+            <ToolbarButton
+                label="Code block"
+                active={state.isCodeBlock}
+                onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+            >
+                <CodeSquare className={buttonClass} />
+            </ToolbarButton>
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<Undo2 size={17} />}
-                    label="Undo"
-                    disabled={!editor.can().undo()}
-                    onClick={() =>
-                        editor.chain().focus().undo().run()
-                    }
-                />
+            <ToolbarButton
+                label="Horizontal rule"
+                onClick={() => editor.chain().focus().setHorizontalRule().run()}
+            >
+                <Minus className={buttonClass} />
+            </ToolbarButton>
 
-                <ToolbarButton
-                    editor={editor}
-                    icon={<Redo2 size={17} />}
-                    label="Redo"
-                    disabled={!editor.can().redo()}
-                    onClick={() =>
-                        editor.chain().focus().redo().run()
-                    }
-                />
-            </div>
 
-            {/* Hidden image input */}
-            <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                className="hidden"
-                onChange={event => {
-                    const file = event.target.files?.[0];
+            <div className="w-px h-6 bg-border mx-1" />
 
-                    if (file) {
-                        void uploadImage(file);
-                    }
-                }}
-            />
 
-            {/* Editor canvas */}
-            <div className="
-                overflow-hidden
-                rounded-xl border
-                bg-white dark:bg-zinc-950
-                shadow-sm
-            ">
-                <EditorContent editor={editor} />
-            </div>
+            {/* Text alignment */}
+            <ToolbarButton
+                label="Align left"
+                active={state.isAlignLeft}
+                onClick={() =>
+                    editor.chain().focus().setTextAlign("left").run()
+                }
+            >
+                <AlignLeft className={buttonClass} />
+            </ToolbarButton>
 
-            <div className="
-                flex justify-between
-                text-xs text-muted-foreground
-            ">
-                <span>WordPress-style block editor</span>
-                <span>
-                    {editor.storage.characterCount?.characters?.() ?? ""}
-                </span>
-            </div>
+            <ToolbarButton
+                label="Align center"
+                active={state.isAlignCenter}
+                onClick={() =>
+                    editor.chain().focus().setTextAlign("center").run()
+                }
+            >
+                <AlignCenter className={buttonClass} />
+            </ToolbarButton>
+
+            <ToolbarButton
+                label="Align right"
+                active={state.isAlignRight}
+                onClick={() =>
+                    editor.chain().focus().setTextAlign("right").run()
+                }
+            >
+                <AlignRight className={buttonClass} />
+            </ToolbarButton>
+
+            <ToolbarButton
+                label="Justify"
+                active={state.isAlignJustify}
+                onClick={() =>
+                    editor.chain().focus().setTextAlign("justify").run()
+                }
+            >
+                <AlignJustify className={buttonClass} />
+            </ToolbarButton>
+
+
+            <div className="w-px h-6 bg-border mx-1" />
+
+
+            {/* Undo / Redo */}
+            <ToolbarButton
+                label="Undo"
+                disabled={!state.canUndo}
+                onClick={() => editor.chain().focus().undo().run()}
+            >
+                <Undo2 className={buttonClass} />
+            </ToolbarButton>
+
+            <ToolbarButton
+                label="Redo"
+                disabled={!state.canRedo}
+                onClick={() => editor.chain().focus().redo().run()}
+            >
+                <Redo2 className={buttonClass} />
+            </ToolbarButton>
+
         </div>
     );
 }
+
+
+// ----------------------------------
+// Main editor
+// ----------------------------------
+
+function BlogEditor({
+    editable,
+    content,
+    getText,
+    getHtml,
+    getJson,
+}: Props) {
+
+    const editor = useEditor({
+        extensions: [
+            StarterKit,
+
+            TaskList,
+
+            TaskItem.configure({
+                nested: true,
+                
+            }),
+
+            TextAlign.configure({
+                types: ["heading", "paragraph"],
+                alignments: ["left", "center", "right", "justify"],
+            }),
+        ],
+
+        content,
+
+        editable,
+
+        immediatelyRender: false,
+
+        editorProps: {
+            attributes: {
+                class: [
+                    "min-h-28",
+                    "w-full",
+                    "rounded-md",
+                    "border",
+                    "p-4",
+                    "outline-none",
+                    "prose",
+                    "max-w-none",
+                    "dark:prose-invert",
+                    "focus-visible:ring-2",
+                    "focus-visible:ring-ring",
+                    "blog-editor-content"
+                ].join(" "),
+            },
+        },
+
+        onUpdate({ editor }) {
+            const html = editor.getHTML();
+            getHtml(html);
+            getText(editor.getText());
+            getJson?.(editor.getJSON());
+        },
+    });
+
+
+    // Update editor editability when prop changes.
+    useEffect(() => {
+        if (!editor) return;
+
+        editor.setEditable(editable);
+    }, [editor, editable]);
+
+
+    // Sync external content changes without triggering onUpdate.
+    useEffect(() => {
+        if (!editor) return;
+
+        if (editor.getHTML() !== content) {
+            editor.commands.setContent(content, {
+                emitUpdate: false,
+            });
+        }
+    }, [editor, content]);
+
+
+    if (!editor) {
+        return <Skeleton className="h-40 w-full" />;
+    }
+
+
+    return (
+        <div className="w-full space-y-2">
+
+            {editable && <MenuBar editor={editor} />}
+
+            <EditorContent
+                
+                editor={editor}
+                className="w-full"
+            />
+
+        </div>
+    );
+}
+
+export default BlogEditor;

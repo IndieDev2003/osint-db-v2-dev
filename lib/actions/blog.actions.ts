@@ -6,7 +6,6 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 
 
-import { generateSafeBlogHTML } from "@/lib/server/blog-html.server";
 
 import {
     createBlogInDB,
@@ -31,7 +30,7 @@ async function getVerifiedUser() {
     return session.user;
 }
 
-export async function createBlogAction(input: unknown) {
+export async function createBlogAction(input: any) {
     try {
         const user = await getVerifiedUser();
 
@@ -45,17 +44,13 @@ export async function createBlogAction(input: unknown) {
             };
         }
 
-        const contentHtml = generateSafeBlogHTML(
-            parsed.data.contentJson as Parameters<
-                typeof generateSafeBlogHTML
-            >[0]
-        );
+
 
         const result = await createBlogInDB(
             parsed.data,
             user.id,
             user.name || "OSINT Contributor",
-            contentHtml
+            input.html
         );
 
         revalidatePath("/blogs");
@@ -83,7 +78,7 @@ export async function createBlogAction(input: unknown) {
 
 export async function updateBlogAction(
     id: string,
-    input: unknown
+    input: any
 ) {
     try {
         const user = await getVerifiedUser();
@@ -98,17 +93,12 @@ export async function updateBlogAction(
             };
         }
 
-        const contentHtml = generateSafeBlogHTML(
-            parsed.data.contentJson as Parameters<
-                typeof generateSafeBlogHTML
-            >[0]
-        );
 
         const result = await updateBlogInDB(
             id,
             user.id,
-            parsed.data,
-            contentHtml
+            input as any,
+            input.html 
         );
 
         if (!result) {

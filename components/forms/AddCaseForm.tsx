@@ -47,6 +47,7 @@ function AddCaseForm() {
                 | "open"
                 | "in_progress"
                 | "closed",
+            purpose:''
         },
 
         onSubmit: async ({ value }) => {
@@ -133,6 +134,26 @@ function AddCaseForm() {
                             placeholder="Describe the investigation..."
                             rows={14}
                             className="min-h-44"
+                            value={field.state.value}
+                            onBlur={field.handleBlur}
+                            onChange={(e :any) =>
+                                field.handleChange(e.target.value)
+                            }
+                        />
+                    </Field>
+                )}
+            </form.Field>
+            <form.Field name="purpose">
+                {(field) => (
+                    <Field>
+                        <FieldLabel htmlFor={field.name}>
+                            Purpose
+                        </FieldLabel>
+
+                        <Input
+                            id={field.name}
+                            name={field.name}
+                            placeholder="Describe the Purpose of investigation..."
                             value={field.state.value}
                             onBlur={field.handleBlur}
                             onChange={(e :any) =>
